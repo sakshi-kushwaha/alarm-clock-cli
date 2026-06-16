@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from . import __version__
 from .models import Alarm
+from .scheduler import Watcher
 from .sound import ring
 from .storage import Store
 from .timeparse import TimeParseError, parse_duration, parse_time_of_day
@@ -124,8 +125,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
         return 2
     alarms.append(alarm)
     store.save(alarms)
-    nxt = alarm.next_occurrence(now)
-    when = nxt.strftime("%Y-%m-%d %H:%M") if nxt else "—"
+    when = alarm.next_occurrence(now).strftime("%Y-%m-%d %H:%M")
     tag = f" ({alarm.label})" if alarm.label else ""
     print(f"Added alarm #{alarm.id}{tag}: {alarm.describe_schedule()} — next at {when}")
     return 0
@@ -141,7 +141,9 @@ def _cmd_list(args: argparse.Namespace) -> int:
     print(f"{'ID':>3}  {'NEXT':<16}  {'SCHEDULE':<18}  {'ON':<3}  LABEL")
     for a in sorted(alarms, key=lambda x: x.id):
         nxt = a.next_occurrence(now)
-        when = nxt.strftime("%Y-%m-%d %H:%M") if nxt else "passed"
+        when = nxt.strftime("%Y-%m-%d %H:%M")
+        if a.is_overdue(now):
+            when += " (passed)"
         on = "yes" if a.enabled else "no"
         print(f"{a.id:>3}  {when:<16}  {a.describe_schedule():<18}  {on:<3}  {a.label}")
     return 0
@@ -157,6 +159,22 @@ def _cmd_remove(args: argparse.Namespace) -> int:
     store.save(remaining)
     print(f"Removed alarm #{args.id}")
     return 0
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    store = Store()
+    alarms = [a for a in store.load() if a.enabled]
+    if not alarms and args.once:
+        print("No enabled alarms to wait for.")
+        return 0
+    if not args.once:
+        print("Watching for alarms… Ctrl-C to stop.")
+    watcher = Watcher(store, no_sound=args.no_sound)
+    try:
+        return watcher.run(once=args.once)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+        return 130
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -190,6 +208,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_remove = sub.add_parser("remove", help="Remove a saved alarm by id.")
     p_remove.add_argument("id", type=int, help="The alarm id (see 'alarm list').")
     p_remove.set_defaults(func=_cmd_remove)
+
+    p_run = sub.add_parser("run", help="Watch saved alarms in the foreground and ring when due.")
+    p_run.add_argument("--once", action="store_true", help="Exit after the first alarm fires.")
+    p_run.add_argument("--no-sound", action="store_true", help="Do not play a sound when ringing.")
+    p_run.set_defaults(func=_cmd_run)
 
     return parser
 

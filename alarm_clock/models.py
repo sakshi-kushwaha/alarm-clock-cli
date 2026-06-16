@@ -41,14 +41,16 @@ class Alarm:
     def is_clock(self) -> bool:
         return self.hour is not None and self.minute is not None
 
-    def next_occurrence(self, now: datetime) -> Optional[datetime]:
-        """Next time this alarm should fire at or after ``now``.
+    def next_occurrence(self, now: datetime) -> datetime:
+        """The datetime at which this alarm should next fire.
 
-        Returns ``None`` for a one-shot whose moment has already passed.
+        For a one-shot this is its fixed ``fire_at`` (even if already in the past, so
+        a watcher that started late still rings it — catch-up). For a clock alarm it
+        is today or tomorrow's matching time, skipping weekends when repeating on
+        weekdays. Use :meth:`is_overdue` to tell whether the moment has passed.
         """
         if not self.is_clock:
-            fire = datetime.fromisoformat(self.fire_at)  # type: ignore[arg-type]
-            return fire if fire >= now else None
+            return datetime.fromisoformat(self.fire_at)  # type: ignore[arg-type]
 
         candidate = now.replace(hour=self.hour, minute=self.minute, second=0, microsecond=0)
         if candidate < now:
@@ -60,6 +62,10 @@ class Alarm:
         # "none" and "daily" both use the simple today/tomorrow candidate; the
         # difference between them is whether the watcher re-arms after firing.
         return candidate
+
+    def is_overdue(self, now: datetime) -> bool:
+        """True for a one-shot whose scheduled time is already in the past."""
+        return not self.is_clock and self.next_occurrence(now) < now
 
     def describe_schedule(self) -> str:
         """Human-readable summary of when/how this alarm fires."""

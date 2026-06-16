@@ -26,9 +26,15 @@ class NextOccurrence(unittest.TestCase):
         self.assertEqual(a.next_occurrence(datetime(2026, 1, 1, 8, 0)),
                          datetime(2026, 1, 1, 9, 0))
 
-    def test_oneshot_past_is_none(self):
+    def test_oneshot_past_still_returns_time_and_is_overdue(self):
         a = Alarm(id=1, fire_at="2026-01-01T07:00:00")
-        self.assertIsNone(a.next_occurrence(datetime(2026, 1, 1, 8, 0)))
+        now = datetime(2026, 1, 1, 8, 0)
+        self.assertEqual(a.next_occurrence(now), datetime(2026, 1, 1, 7, 0))
+        self.assertTrue(a.is_overdue(now))
+
+    def test_future_oneshot_not_overdue(self):
+        a = Alarm(id=1, fire_at="2026-01-01T09:00:00")
+        self.assertFalse(a.is_overdue(datetime(2026, 1, 1, 8, 0)))
 
 
 class Validation(unittest.TestCase):
