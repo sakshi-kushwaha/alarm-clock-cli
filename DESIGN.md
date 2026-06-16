@@ -44,7 +44,7 @@ Single package `alarm_clock/`:
 | `cli.py` | `argparse` subcommands; `main(argv)` returns an exit code. |
 | `__main__.py` | Enables `python -m alarm_clock`. |
 
-**Persistence:** a JSON file at `~/.config/alarm-clock/alarms.json`, overridable via
+**Persistence:** a JSON file at `alarms.json` in the project root, overridable via
 the `ALARM_CLOCK_HOME` env var (handy for tests and throwaway runs).
 
 **Sound backends**, chosen by platform, all wrapped so failure is non-fatal:

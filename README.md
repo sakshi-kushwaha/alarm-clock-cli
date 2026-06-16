@@ -33,7 +33,7 @@ alarm set 10m --label tea
 alarm set 7:30am --label "wake up"
 alarm timer 90s                 # duration-only countdown
 
-# Saved alarms (persisted to ~/.config/alarm-clock/alarms.json)
+# Saved alarms (persisted to alarms.json in the project root)
 alarm add 07:30 --label gym --repeat weekdays
 alarm add 22:00 --label meds --repeat daily
 alarm add 25m --label laundry   # one-shot, fires once
@@ -122,8 +122,8 @@ Best-effort and non-fatal. macOS uses `afplay`, Windows `winsound`, Linux
 
 ### Storage location
 
-Alarms live in `~/.config/alarm-clock/alarms.json`. Override the directory with
-the `ALARM_CLOCK_HOME` environment variable.
+Alarms live in `alarms.json` in the project root (next to this README). Override
+the directory with the `ALARM_CLOCK_HOME` environment variable.
 
 ## Development
 

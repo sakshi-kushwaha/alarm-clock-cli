@@ -19,11 +19,16 @@ __all__ = ["Store", "default_home"]
 
 
 def default_home() -> Path:
-    """Directory where alarms are stored. Override with ``ALARM_CLOCK_HOME``."""
+    """Directory where alarms are stored. Override with ``ALARM_CLOCK_HOME``.
+
+    Defaults to the project root (the parent of the ``alarm_clock`` package), so
+    ``alarms.json`` lives alongside the code in this repo rather than in a hidden
+    home-directory config folder.
+    """
     override = os.environ.get("ALARM_CLOCK_HOME")
     if override:
         return Path(override)
-    return Path.home() / ".config" / "alarm-clock"
+    return Path(__file__).resolve().parent.parent
 
 
 class Store:
