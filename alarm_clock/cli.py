@@ -168,6 +168,27 @@ def _cmd_remove(args: argparse.Namespace) -> int:
     return 0
 
 
+def _set_enabled(alarm_id: int, enabled: bool) -> int:
+    store = Store()
+    alarms = store.load()
+    for a in alarms:
+        if a.id == alarm_id:
+            a.enabled = enabled
+            store.save(alarms)
+            print(f"{'Enabled' if enabled else 'Disabled'} alarm #{alarm_id}")
+            return 0
+    print(f"error: no alarm with id {alarm_id}", file=sys.stderr)
+    return 1
+
+
+def _cmd_enable(args: argparse.Namespace) -> int:
+    return _set_enabled(args.id, True)
+
+
+def _cmd_disable(args: argparse.Namespace) -> int:
+    return _set_enabled(args.id, False)
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     store = Store()
     alarms = [a for a in store.load() if a.enabled]
@@ -176,7 +197,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return 0
     if not args.once:
         print("Watching for alarms… Ctrl-C to stop.")
-    watcher = Watcher(store, no_sound=args.no_sound)
+    watcher = Watcher(store, no_sound=args.no_sound, snooze_minutes=args.snooze)
     try:
         return watcher.run(once=args.once)
     except KeyboardInterrupt:
@@ -220,9 +241,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_remove.add_argument("id", type=int, help="The alarm id (see 'alarm list').")
     p_remove.set_defaults(func=_cmd_remove)
 
+    p_enable = sub.add_parser("enable", help="Enable a saved alarm by id.")
+    p_enable.add_argument("id", type=int, help="The alarm id (see 'alarm list').")
+    p_enable.set_defaults(func=_cmd_enable)
+
+    p_disable = sub.add_parser("disable", help="Disable a saved alarm by id.")
+    p_disable.add_argument("id", type=int, help="The alarm id (see 'alarm list').")
+    p_disable.set_defaults(func=_cmd_disable)
+
     p_run = sub.add_parser("run", help="Watch saved alarms in the foreground and ring when due.")
     p_run.add_argument("--once", action="store_true", help="Exit after the first alarm fires.")
     p_run.add_argument("--no-sound", action="store_true", help="Do not play a sound when ringing.")
+    p_run.add_argument(
+        "--snooze", type=int, default=0, metavar="MIN",
+        help="On ring, offer to snooze this many minutes (interactive; default: off).",
+    )
     p_run.set_defaults(func=_cmd_run)
 
     return parser

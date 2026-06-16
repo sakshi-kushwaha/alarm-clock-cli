@@ -73,6 +73,15 @@ class AddListRemove(unittest.TestCase):
     def test_repeat_on_duration_rejected(self):
         self.assertEqual(cli.main(["add", "10m", "--repeat", "daily"]), 2)
 
+    def test_enable_disable(self):
+        cli.main(["add", "07:30"])
+        from alarm_clock.storage import Store
+        self.assertEqual(cli.main(["disable", "1"]), 0)
+        self.assertFalse(Store().load()[0].enabled)
+        self.assertEqual(cli.main(["enable", "1"]), 0)
+        self.assertTrue(Store().load()[0].enabled)
+        self.assertEqual(cli.main(["disable", "99"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,8 +7,9 @@ clock in tests -- no real sleeping, no real sound.
 
 from __future__ import annotations
 
+import sys
 import time as _time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, List, Optional, Tuple
 
 from .models import Alarm
@@ -20,6 +21,17 @@ __all__ = ["next_due", "Watcher"]
 # How often the loop wakes up to re-read the store, so alarms added while it runs
 # get picked up without restarting the watcher.
 POLL_INTERVAL = 30.0
+
+
+def _interactive_prompt(message: str) -> bool:
+    """Default snooze prompt: ask on a TTY, decline (dismiss) otherwise."""
+    if not sys.stdin.isatty():
+        return False
+    try:
+        answer = input(message).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer in ("y", "yes", "s", "snooze")
 
 
 def next_due(alarms: List[Alarm], now: datetime) -> Optional[Tuple[Alarm, datetime]]:
@@ -45,6 +57,8 @@ class Watcher:
         ring_fn: Callable[..., None] = real_ring,
         poll_interval: float = POLL_INTERVAL,
         no_sound: bool = False,
+        snooze_minutes: int = 0,
+        prompt_fn: Callable[[str], bool] = _interactive_prompt,
     ):
         self.store = store
         self.now_fn = now_fn
@@ -52,6 +66,8 @@ class Watcher:
         self.ring_fn = ring_fn
         self.poll_interval = poll_interval
         self.no_sound = no_sound
+        self.snooze_minutes = snooze_minutes
+        self.prompt_fn = prompt_fn
 
     def run(self, once: bool = False) -> int:
         """Watch and fire alarms. With ``once=True``, return after the first ring
@@ -86,7 +102,24 @@ class Watcher:
         tag = f" ({alarm.label})" if alarm.label else ""
         print(f"\n⏰ ALARM{tag} — {when.strftime('%Y-%m-%d %H:%M')}")
         self.ring_fn(no_sound=self.no_sound)
-        self._retire(alarm)
+        if self.snooze_minutes > 0 and self.prompt_fn(
+            f"Snooze {self.snooze_minutes}m? [y/N] "
+        ):
+            self._snooze(alarm)
+        else:
+            self._retire(alarm)
+
+    def _snooze(self, alarm: Alarm) -> None:
+        """Add a one-shot that re-rings ``snooze_minutes`` from now, then retire the
+        original one-shot (a recurring alarm keeps its normal schedule)."""
+        alarms = self.store.load()
+        fire_at = (self.now_fn() + timedelta(minutes=self.snooze_minutes)).replace(microsecond=0)
+        label = (alarm.label + " (snoozed)").strip()
+        new_id = self.store.next_id(alarms)
+        remaining = [a for a in alarms if a.repeat != "none" or a.id != alarm.id]
+        remaining.append(Alarm(id=new_id, label=label, fire_at=fire_at.isoformat()))
+        self.store.save(remaining)
+        print(f"Snoozed until {fire_at.strftime('%H:%M')}.")
 
     def _retire(self, alarm: Alarm) -> None:
         """After firing: recurring alarms re-arm automatically; one-shots are removed.

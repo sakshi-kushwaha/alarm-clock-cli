@@ -73,6 +73,29 @@ class WatcherFiring(unittest.TestCase):
         self.assertEqual(len(rings), 1)
         self.assertEqual(len(self.store.load()), 1)  # daily alarm kept
 
+    def test_snooze_reschedules_oneshot(self):
+        fire_at = datetime(2026, 1, 1, 8, 1, 0)
+        self.store.save([Alarm(id=1, fire_at=fire_at.isoformat(), label="x")])
+        clock = FakeClock(datetime(2026, 1, 1, 8, 0, 0))
+        rings = []
+        watcher = Watcher(
+            self.store,
+            now_fn=clock.now_fn,
+            sleep_fn=clock.sleep_fn,
+            ring_fn=lambda **_: rings.append(True),
+            poll_interval=30.0,
+            snooze_minutes=9,
+            prompt_fn=lambda _msg: True,  # always snooze
+        )
+        watcher.run(once=True)
+        alarms = self.store.load()
+        # Original retired, a single snooze one-shot 9 minutes after firing remains.
+        self.assertEqual(len(alarms), 1)
+        self.assertIn("snoozed", alarms[0].label)
+        self.assertEqual(
+            datetime.fromisoformat(alarms[0].fire_at), datetime(2026, 1, 1, 8, 10, 0)
+        )
+
     def test_once_with_no_alarms_returns_immediately(self):
         clock = FakeClock(datetime(2026, 1, 1, 8, 0, 0))
         rings = []
