@@ -48,6 +48,61 @@ alarm run --once                # exit after the first alarm fires
 alarm run --snooze 9            # offer a 9-minute snooze on each ring
 ```
 
+### Example output
+
+Adding alarms confirms the schedule and the next time each will fire:
+
+```text
+$ alarm add 07:30 --label gym --repeat weekdays
+Added alarm #1 (gym): 07:30 on weekdays — next at 2026-06-17 07:30
+$ alarm add 22:00 --label meds --repeat daily
+Added alarm #2 (meds): 22:00 daily — next at 2026-06-17 22:00
+$ alarm add 25m --label laundry
+Added alarm #3 (laundry): 2026-06-17 00:38 — next at 2026-06-17 00:38
+```
+
+`list` prints a table; one-shots whose time has passed are flagged `(passed)`:
+
+```text
+$ alarm list
+ ID  NEXT              SCHEDULE            ON   LABEL
+  1  2026-06-17 07:30  07:30 on weekdays   yes  gym
+  2  2026-06-17 22:00  22:00 daily         yes  meds
+  3  2026-06-17 00:38  2026-06-17 00:38    yes  laundry
+```
+
+`set` and `timer` count down in the foreground, then ring:
+
+```text
+$ alarm timer 10m --label tea
+Alarm set for 00:23:30 (tea) — 10m from now. Ctrl-C to cancel.
+
+⏰ ALARM (tea) — 00:23:30
+```
+
+The watcher prints the same banner when a saved alarm fires:
+
+```text
+$ alarm run --snooze 9
+Watching for alarms… Ctrl-C to stop.
+
+⏰ ALARM (gym) — 2026-06-17 07:30
+Snooze 9m? [y/N] y
+Snoozed until 07:39.
+```
+
+Managing alarms gives a short confirmation (or an error and non-zero exit if the
+id is unknown):
+
+```text
+$ alarm disable 2
+Disabled alarm #2
+$ alarm remove 3
+Removed alarm #3
+$ alarm remove 99
+error: no alarm with id 99
+```
+
 ### Time and duration formats
 
 - **Clock time:** `07:30`, `7:30am`, `23:00`, `9`, `noon`, `midnight`.
