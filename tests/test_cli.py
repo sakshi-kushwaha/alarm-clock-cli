@@ -64,6 +64,15 @@ class AddListRemove(unittest.TestCase):
     def test_add_bad_spec_exits_2(self):
         self.assertEqual(cli.main(["add", "nonsense"]), 2)
 
+    def test_add_repeat_weekdays_persists(self):
+        self.assertEqual(cli.main(["add", "07:30", "--repeat", "weekdays"]), 0)
+        from alarm_clock.storage import Store
+        alarms = Store().load()
+        self.assertEqual(alarms[0].repeat, "weekdays")
+
+    def test_repeat_on_duration_rejected(self):
+        self.assertEqual(cli.main(["add", "10m", "--repeat", "daily"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,7 +13,7 @@ import time as _time
 from datetime import datetime, timedelta
 
 from . import __version__
-from .models import Alarm
+from .models import REPEAT_CHOICES, Alarm
 from .scheduler import Watcher
 from .sound import ring
 from .storage import Store
@@ -92,12 +92,18 @@ def _cmd_timer(args: argparse.Namespace) -> int:
     return _countdown(float(seconds), args.label or "", fire_at, args.no_sound)
 
 
-def _build_alarm(spec: str, alarm_id: int, label: str, now: datetime) -> Alarm:
-    """Construct an Alarm from a time-or-duration spec (raises TimeParseError)."""
+def _build_alarm(spec: str, alarm_id: int, label: str, repeat: str, now: datetime) -> Alarm:
+    """Construct an Alarm from a time-or-duration spec (raises TimeParseError).
+
+    ``repeat`` (daily/weekdays) only applies to clock-time alarms; recurrence on a
+    duration is meaningless, so it is rejected.
+    """
     try:
         tod = parse_time_of_day(spec)
     except TimeParseError:
         seconds = parse_duration(spec)  # may raise TimeParseError
+        if repeat != "none":
+            raise TimeParseError("--repeat only works with a clock time, not a duration.")
         fire_at = (now + timedelta(seconds=seconds)).replace(microsecond=0)
         return Alarm(
             id=alarm_id,
@@ -110,6 +116,7 @@ def _build_alarm(spec: str, alarm_id: int, label: str, now: datetime) -> Alarm:
         label=label,
         hour=tod.hour,
         minute=tod.minute,
+        repeat=repeat,
         created_at=now.isoformat(timespec="seconds"),
     )
 
@@ -119,7 +126,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
     alarms = store.load()
     now = datetime.now()
     try:
-        alarm = _build_alarm(args.when, store.next_id(alarms), args.label or "", now)
+        alarm = _build_alarm(args.when, store.next_id(alarms), args.label or "", args.repeat, now)
     except TimeParseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -200,6 +207,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_add = sub.add_parser("add", help="Save an alarm to fire at a clock time or after a duration.")
     p_add.add_argument("when", help="Clock time (07:30, 7:30am, noon) or duration (10m, 1h30m).")
     p_add.add_argument("--label", "-l", help="Optional label for the alarm.")
+    p_add.add_argument(
+        "--repeat", "-r", choices=REPEAT_CHOICES, default="none",
+        help="Recurrence for a clock-time alarm (default: none).",
+    )
     p_add.set_defaults(func=_cmd_add)
 
     p_list = sub.add_parser("list", help="List saved alarms.")
