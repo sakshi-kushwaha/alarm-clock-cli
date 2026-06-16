@@ -13,7 +13,9 @@ import time as _time
 from datetime import datetime, timedelta
 
 from . import __version__
+from .models import Alarm
 from .sound import ring
+from .storage import Store
 from .timeparse import TimeParseError, parse_duration, parse_time_of_day
 
 
@@ -89,6 +91,74 @@ def _cmd_timer(args: argparse.Namespace) -> int:
     return _countdown(float(seconds), args.label or "", fire_at, args.no_sound)
 
 
+def _build_alarm(spec: str, alarm_id: int, label: str, now: datetime) -> Alarm:
+    """Construct an Alarm from a time-or-duration spec (raises TimeParseError)."""
+    try:
+        tod = parse_time_of_day(spec)
+    except TimeParseError:
+        seconds = parse_duration(spec)  # may raise TimeParseError
+        fire_at = (now + timedelta(seconds=seconds)).replace(microsecond=0)
+        return Alarm(
+            id=alarm_id,
+            label=label,
+            fire_at=fire_at.isoformat(),
+            created_at=now.isoformat(timespec="seconds"),
+        )
+    return Alarm(
+        id=alarm_id,
+        label=label,
+        hour=tod.hour,
+        minute=tod.minute,
+        created_at=now.isoformat(timespec="seconds"),
+    )
+
+
+def _cmd_add(args: argparse.Namespace) -> int:
+    store = Store()
+    alarms = store.load()
+    now = datetime.now()
+    try:
+        alarm = _build_alarm(args.when, store.next_id(alarms), args.label or "", now)
+    except TimeParseError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    alarms.append(alarm)
+    store.save(alarms)
+    nxt = alarm.next_occurrence(now)
+    when = nxt.strftime("%Y-%m-%d %H:%M") if nxt else "—"
+    tag = f" ({alarm.label})" if alarm.label else ""
+    print(f"Added alarm #{alarm.id}{tag}: {alarm.describe_schedule()} — next at {when}")
+    return 0
+
+
+def _cmd_list(args: argparse.Namespace) -> int:
+    store = Store()
+    alarms = store.load()
+    if not alarms:
+        print("No alarms set. Add one with: alarm add 07:30")
+        return 0
+    now = datetime.now()
+    print(f"{'ID':>3}  {'NEXT':<16}  {'SCHEDULE':<18}  {'ON':<3}  LABEL")
+    for a in sorted(alarms, key=lambda x: x.id):
+        nxt = a.next_occurrence(now)
+        when = nxt.strftime("%Y-%m-%d %H:%M") if nxt else "passed"
+        on = "yes" if a.enabled else "no"
+        print(f"{a.id:>3}  {when:<16}  {a.describe_schedule():<18}  {on:<3}  {a.label}")
+    return 0
+
+
+def _cmd_remove(args: argparse.Namespace) -> int:
+    store = Store()
+    alarms = store.load()
+    remaining = [a for a in alarms if a.id != args.id]
+    if len(remaining) == len(alarms):
+        print(f"error: no alarm with id {args.id}", file=sys.stderr)
+        return 1
+    store.save(remaining)
+    print(f"Removed alarm #{args.id}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="alarm",
@@ -108,6 +178,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_timer.add_argument("--label", "-l", help="Optional label for the timer.")
     p_timer.add_argument("--no-sound", action="store_true", help="Do not play a sound when ringing.")
     p_timer.set_defaults(func=_cmd_timer)
+
+    p_add = sub.add_parser("add", help="Save an alarm to fire at a clock time or after a duration.")
+    p_add.add_argument("when", help="Clock time (07:30, 7:30am, noon) or duration (10m, 1h30m).")
+    p_add.add_argument("--label", "-l", help="Optional label for the alarm.")
+    p_add.set_defaults(func=_cmd_add)
+
+    p_list = sub.add_parser("list", help="List saved alarms.")
+    p_list.set_defaults(func=_cmd_list)
+
+    p_remove = sub.add_parser("remove", help="Remove a saved alarm by id.")
+    p_remove.add_argument("id", type=int, help="The alarm id (see 'alarm list').")
+    p_remove.set_defaults(func=_cmd_remove)
 
     return parser
 

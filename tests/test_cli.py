@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -36,6 +38,31 @@ class TimerCommand(unittest.TestCase):
     def test_bad_duration_exits_2(self):
         rc = cli.main(["timer", "nonsense"])
         self.assertEqual(rc, 2)
+
+
+class AddListRemove(unittest.TestCase):
+    def setUp(self):
+        self._dir = tempfile.TemporaryDirectory()
+        self._prev = os.environ.get("ALARM_CLOCK_HOME")
+        os.environ["ALARM_CLOCK_HOME"] = self._dir.name
+
+    def tearDown(self):
+        if self._prev is None:
+            os.environ.pop("ALARM_CLOCK_HOME", None)
+        else:
+            os.environ["ALARM_CLOCK_HOME"] = self._prev
+        self._dir.cleanup()
+
+    def test_add_then_list_then_remove(self):
+        self.assertEqual(cli.main(["add", "07:30", "--label", "wake"]), 0)
+        self.assertEqual(cli.main(["add", "10m"]), 0)
+        self.assertEqual(cli.main(["list"]), 0)
+        # Removing a real id succeeds; an unknown id is an error.
+        self.assertEqual(cli.main(["remove", "1"]), 0)
+        self.assertEqual(cli.main(["remove", "99"]), 1)
+
+    def test_add_bad_spec_exits_2(self):
+        self.assertEqual(cli.main(["add", "nonsense"]), 2)
 
 
 if __name__ == "__main__":
