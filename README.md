@@ -10,69 +10,42 @@ behind the build.
 
 - Python 3.9+
 
-## Install (optional)
+## Running the commands
 
-It runs straight from a checkout:
+Every command can be run as **`alarm <args>`** _or_ **`python -m alarm_clock <args>`** —
+the two forms are identical:
 
-```bash
-python -m alarm_clock --help
-```
-
-Or install the `alarm` console command:
+- `alarm` is the console command, available after `pip install -e .`.
+- `python -m alarm_clock` needs no install and runs straight from a checkout.
 
 ```bash
-pip install -e .
-alarm --help
+pip install -e .         # optional: enables the `alarm` command
+alarm --help             # or: python -m alarm_clock --help
 ```
+
+The examples below use `alarm` for brevity.
 
 ## Usage
-
-> **Note:** `alarm` is the console command available after `pip install -e .`.
-> Without installing, replace `alarm` with `python -m alarm_clock` in any command
-> below — both forms are shown.
 
 ```bash
 # Quick one-off: wait in the foreground, then ring
 alarm set 10m --label tea
-python -m alarm_clock set 10m --label tea
-
 alarm set 7:30am --label "wake up"
-python -m alarm_clock set 7:30am --label "wake up"
-
 alarm timer 90s                 # duration-only countdown
-python -m alarm_clock timer 90s
 
 # Saved alarms (persisted to ~/.config/alarm-clock/alarms.json)
 alarm add 07:30 --label gym --repeat weekdays
-python -m alarm_clock add 07:30 --label gym --repeat weekdays
-
 alarm add 22:00 --label meds --repeat daily
-python -m alarm_clock add 22:00 --label meds --repeat daily
-
 alarm add 25m --label laundry   # one-shot, fires once
-python -m alarm_clock add 25m --label laundry
-
 alarm list
-python -m alarm_clock list
-
 alarm disable 2
-python -m alarm_clock disable 2
-
 alarm enable 2
-python -m alarm_clock enable 2
-
 alarm remove 3
-python -m alarm_clock remove 3
 
 # Watch saved alarms and ring when due (foreground; Ctrl-C to stop)
 alarm run
-python -m alarm_clock run
-
 alarm run --once                # exit after the first alarm fires
-python -m alarm_clock run --once
-
 alarm run --snooze 9            # offer a 9-minute snooze on each ring
-python -m alarm_clock run --snooze 9
 ```
 
 ### Time and duration formats
@@ -104,3 +77,9 @@ Run the test suite (standard-library `unittest`, no extra deps):
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Built with
+
+Requirements refinement, design, and implementation were done with the help of
+**Claude** (Anthropic), following the agile, one-feature-per-commit process
+described in [DESIGN.md](DESIGN.md).
